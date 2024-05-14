@@ -5,6 +5,7 @@
 #include "SDL.h"
 #include "SDL_image.h"
 #include "SDL_mixer.h"
+#include "SDL_render.h"
 
 #include "fb.h"
 
@@ -12,7 +13,7 @@
 
 void blit(SDL_Surface *des, SDL_Surface *src, SDL_Rect *srcrect, SDL_Rect *desrect) {
     blit_info info;
-
+#ifdef __arm__
     info.dst = des->pixels;
     if (desrect != NULL) {
         info.dst_x = desrect->x;
@@ -64,11 +65,14 @@ void blit(SDL_Surface *des, SDL_Surface *src, SDL_Rect *srcrect, SDL_Rect *desre
     }
 
     fb_blit(&info);
+#else
+	SDL_UpperBlit(src, srcrect, des, desrect);
+#endif	
 }
 
 void blit_colorkey(SDL_Surface *des, SDL_Surface *src, SDL_Rect *srcrect, SDL_Rect *desrect) {
     blit_info info;
-
+#ifdef __arm__
     info.dst = des->pixels;
     if (desrect != NULL) {
         info.dst_x = desrect->x;
@@ -120,6 +124,10 @@ void blit_colorkey(SDL_Surface *des, SDL_Surface *src, SDL_Rect *srcrect, SDL_Re
     }
 
     fb_blit_colorkey(&info, (pixel_t) 0xFF000000);
+#else
+	SDL_UpperBlit(src, srcrect, des, desrect);
+	SDL_SetColorKey(des, 1, 0xFF000000);
+#endif
 }
 
 void drawscreen (SDL_Surface *renderer,uint stagedata[][22][32],SDL_Surface *tiles,uint room[],uint counter[],uint changeflag,Mix_Chunk *fx[],uint changetiles) {

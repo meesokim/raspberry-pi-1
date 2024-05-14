@@ -26,9 +26,11 @@ extern void ending (SDL_Window *screen,uint *state);
 extern "C" {
 #endif
 
+#ifdef __arm__
 __attribute__ ((interrupt ("IRQ"))) void interrupt_irq() {
     SDL_Interrupt_Handler();
 }
+#endif
 
 #if defined(__cplusplus)
 }

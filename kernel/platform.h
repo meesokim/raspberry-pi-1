@@ -1171,6 +1171,10 @@ uint32_t mmio_read(uint32_t reg);
 void     mbox_write(uint8_t channel, uint32_t data);
 uint32_t mbox_read(uint8_t channel);
 
+#ifndef _USECONDS_T_DECLARED
+typedef unsigned int useconds_t;
+#define	_USECONDS_T_DECLARED
+#endif
 int      usleep(useconds_t usec);
 
 void register_timer(struct timer_wait * tw, unsigned int usec);
