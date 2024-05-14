@@ -38,3 +38,5 @@ struct hero {
 	int push[4]; /* Pulsaciones de teclas */
 	int temp;
 };
+
+typedef unsigned int uint;

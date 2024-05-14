@@ -13,6 +13,7 @@ extern unsigned int _binary_graphics_ending_png_end;
 
 extern unsigned int _binary_sounds_PrayerofHopeN_ogg_start;
 extern unsigned int _binary_sounds_PrayerofHopeN_ogg_end;
+typedef unsigned int uint;
 
 void ending (SDL_Window *screen,uint *state) {
 

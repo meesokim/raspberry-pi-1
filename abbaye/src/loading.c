@@ -10,6 +10,8 @@ extern unsigned int _binary_data_map_txt_end;
 extern unsigned int _binary_data_enemies_txt_start;
 extern unsigned int _binary_data_enemies_txt_end;
 
+typedef unsigned int uint;
+
 static char * SDL_fgets_RW(char * buf, int n, SDL_RWops *rw) {
     char *s = buf, b;
     int c = 0;

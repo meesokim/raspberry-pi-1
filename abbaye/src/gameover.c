@@ -12,6 +12,8 @@ extern unsigned int _binary_graphics_gameover_png_end;
 extern unsigned int _binary_sounds_GameOverV2N_ogg_start;
 extern unsigned int _binary_sounds_GameOverV2N_ogg_end;
 
+typedef unsigned int uint;
+
 void gameover (SDL_Window *screen,uint *state) {
 
 	SDL_Renderer *renderer = SDL_CreateRenderer(screen, -1, SDL_RENDERER_SOFTWARE); // SDL_RENDERER_PRESENTVSYNC);

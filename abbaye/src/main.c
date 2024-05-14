@@ -14,6 +14,8 @@
 
 #include "kernel.h"
 
+typedef unsigned int uint;
+
 extern void startscreen(SDL_Window *screen,uint *state,uint *grapset,uint *fullscreen);
 extern void history(SDL_Window *screen,uint *state,uint *grapset,uint *fullscreen);
 extern void game(SDL_Window *screen,uint *state,uint *grapset,uint *fullscreen);

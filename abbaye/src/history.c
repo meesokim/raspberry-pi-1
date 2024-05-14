@@ -14,6 +14,8 @@ extern unsigned int _binary_graphics_history_png_end;
 extern unsigned int _binary_sounds_ManhuntN_ogg_start;
 extern unsigned int _binary_sounds_ManhuntN_ogg_end;
 
+typedef unsigned int uint;
+
 extern void blit(SDL_Surface *des, SDL_Surface *src, SDL_Rect *srcrect, SDL_Rect *desrect);
 
 void history(SDL_Window *screen,uint *state,uint *grapset,uint *fullscreen) {

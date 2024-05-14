@@ -14,6 +14,8 @@ extern unsigned int _binary_graphics_intromd_png_end;
 extern unsigned int _binary_sounds_MainTitleN_ogg_start;
 extern unsigned int _binary_sounds_MainTitleN_ogg_end;
 
+typedef unsigned int uint;
+
 void startscreen(SDL_Window *screen,uint *state,uint *grapset,uint *fullscreen) {
 
 	/* Renderer (with VSync, nice !) */
