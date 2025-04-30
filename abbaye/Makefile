@@ -28,7 +28,6 @@ CFLAGS += -finline-functions -funswitch-loops -fpredictive-commoning -fgcse-afte
 kernel.img: $(OBJS) Makefile ../kernel/raspberry.ld $(LIBS_DEP)
 	$(CXX) $(LDFLAGS) $(OBJS) $(LIBS)
 	$(OBJCOPY) kernel.elf -O binary kernel.img
-	rm kernel.elf
 
 %.o: %.png
 	$(LD) -r -b binary -o $@ $<
