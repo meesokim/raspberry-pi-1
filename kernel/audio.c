@@ -21,22 +21,39 @@
 #include "audio.h"
 
 #define SAMPLE_SHIFT       3
-#define HDMI_AUDIO_ENABLE  0x1
 
-// HDMI 관련 레지스터 정의 추가
-#define HDMI_BASE          0x20902000
-#define HDMI_MAI_CTL       0x14
-#define HDMI_MAI_FMT       0x18
-#define HDMI_MAI_DATA      0x1C
-#define HDMI_MAI_SMP       0x20
-#define HDMI_MAI_THR       0x24
-#define HDMI_MAI_CTRL      0x50
+/*
+ * BCM2835 HDMI Multi-channel Audio Interconnect (MAI) registers
+ * ARM physical base: PERIPHERAL_BASE + 0x902000 = 0x20902000
+ * Bus address:       0x7E902000
+ *
+ * Register offsets (from Linux kernel drivers/gpu/drm/vc4/vc4_hdmi.c):
+ */
+#define HDMI_PHYS_BASE      (PERIPHERAL_BASE + 0x902000)
+#define HDMI_BUS_BASE       0x7E902000
 
-typedef struct {
-    volatile uint32_t regs[128];
-} HDMI_REGS;
+/* MAI (Multi-channel Audio Interconnect) register offsets */
+#define HDMI_MAI_CTL_OFFSET     0x014   /* MAI Control */
+#define HDMI_MAI_FMT_OFFSET     0x018   /* MAI Sample Format */
+#define HDMI_MAI_DATA_OFFSET    0x01C   /* MAI FIFO Data */
+#define HDMI_MAI_SMP_OFFSET     0x020   /* MAI Sample Rate */
+#define HDMI_MAI_THR_OFFSET     0x024   /* MAI FIFO Threshold */
 
-#define HDMI ((volatile HDMI_REGS *)(HDMI_BASE))
+/* MAI CTL bits */
+#define HDMI_MAI_CTL_EN         (1 << 0)    /* MAI enable */
+#define HDMI_MAI_CTL_WHOLSMP    (1 << 2)    /* Whole sample enable */
+#define HDMI_MAI_CTL_CHNUM(n)   ((n) << 4) /* Number of channels */
+
+/* MAI Format bits */
+#define HDMI_MAI_FORMAT_16BIT   (0 << 4)    /* 16-bit samples */
+#define HDMI_MAI_FORMAT_20BIT   (1 << 4)
+#define HDMI_MAI_FORMAT_24BIT   (2 << 4)
+
+/* DMA Peripheral Mapping for HDMI MAI - use unpaced (no DREQ needed) */
+#define HDMI_DMA_TI  (DMA_SRC_INC | DMA_INTEN)
+
+/* Volatile pointer to MAI registers */
+#define MAI_REG(offset)  (*(volatile uint32_t *)(HDMI_PHYS_BASE + (offset)))
 
 static uint32_t            max_samples;
 
@@ -50,14 +67,13 @@ static volatile uint32_t   write_size;
 static int16_t           * audio_buffer;
 
 int audio_open(uint32_t samples) {
-    volatile uint32_t * ptr;
-
-    max_samples = samples * 2;
+    max_samples = samples * 2;   /* stereo: left + right */
 
     for (int i = 0; i < 2; i++) {
         if (dma_buffer[i] != NULL) {
             free(dma_buffer[i]);
         }
+        /* Extra 15 bytes for 16-byte alignment */
         dma_buffer[i] = (unsigned char *)malloc(max_samples * 4 + 15);
         if (dma_buffer[i] == NULL) {
             return -1;
@@ -71,41 +87,60 @@ int audio_open(uint32_t samples) {
     }
     memset(audio_buffer, 0, max_samples * 2);
 
-    // HDMI 오디오 초기화
-    // HDMI 클럭 설정
-    // CLK->HDMICTL = CM_PASSWORD | CM_KILL;
-    // while ((CLK->HDMICTL & CM_BUSY) != 0)
-    //     usleep(1);
+    /* ----------------------------------------------------------------
+     * Initialize HDMI MAI (Multi-channel Audio Interconnect)
+     *
+     * The MAI bus connects the ARM DMA engine to the HDMI encoder's
+     * audio input. Data written to HDMI_MAI_DATA is forwarded to the
+     * HDMI IP block which embeds it in HDMI audio packets.
+     * ---------------------------------------------------------------- */
 
-    // CLK->HDMIDIV = CM_PASSWORD | (2 << 12);
-    // CLK->HDMICTL = CM_PASSWORD | CM_ENAB | CM_SRC_PLLDPER;
-    // while ((CLK->HDMICTL & CM_BUSY) == 0)
-    //     usleep(1);
-
-    // HDMI 오디오 설정
-    HDMI->regs[HDMI_MAI_CTL/4] = 0;  // 초기화
+    /* 1. Disable MAI and reset */
+    MAI_REG(HDMI_MAI_CTL_OFFSET) = 0;
     usleep(100);
-    
-    // 오디오 포맷 설정 (스테레오, 16비트, 22050Hz)
-    HDMI->regs[HDMI_MAI_FMT/4] = (22050 << 19) | (16 << 4) | (2 - 1);
-    
-    // 오디오 버퍼 임계값 설정
-    HDMI->regs[HDMI_MAI_THR/4] = (0x10 << 16) | (0x08);
-    
-    // HDMI 오디오 활성화
-    HDMI->regs[HDMI_MAI_CTL/4] = HDMI_AUDIO_ENABLE;
 
+    /* 2. Set FIFO thresholds:
+     *    High threshold (panic) = 0x10, Low threshold (dreq) = 0x08 */
+    MAI_REG(HDMI_MAI_THR_OFFSET) = (0x10 << 16) | (0x08 << 8) | 0x08;
+
+    /* 3. Set sample format: 16-bit stereo (2 channels) */
+    MAI_REG(HDMI_MAI_FMT_OFFSET) = HDMI_MAI_FORMAT_16BIT | (2 - 1);
+
+    /* 4. Set sample rate word (informational, written to HDMI infoframe) */
+    MAI_REG(HDMI_MAI_SMP_OFFSET) = 0;   /* 0 = as per stream */
+
+    /* 5. Enable MAI: 2 channels, whole-sample mode */
+    MAI_REG(HDMI_MAI_CTL_OFFSET) = HDMI_MAI_CTL_EN
+                                  | HDMI_MAI_CTL_WHOLSMP
+                                  | HDMI_MAI_CTL_CHNUM(2);
+
+    usleep(100);
+
+    /* ----------------------------------------------------------------
+     * Set up DMA Control Blocks.
+     *
+     * Source:      ARM memory buffer (bus address with L2 cache bypass)
+     * Destination: HDMI MAI DATA FIFO (bus address 0x7E902000 + 0x01C)
+     *
+     * We use unpaced (PERMAP_0) DMA because the MAI FIFO is large
+     * enough to accept a full audio buffer in one shot. Using DREQ
+     * (paced) transfer requires the HDMI controller to assert DREQ on
+     * a specific DMA channel which is not documented for bare-metal use.
+     * ---------------------------------------------------------------- */
     for (int i = 0; i < 2; i++) {
-        dma_cb[i].ti = DMA_DEST_DREQ | DMA_PERMAP_2 | DMA_SRC_INC | DMA_INTEN;  // PERMAP 변경 (HDMI)
-        dma_cb[i].source_ad = 0x40000000 | (((uint32_t) dma_buffer[i] + 15) & ~0xf);
-        dma_cb[i].dest_ad = 0x7E000000 | HDMI_BASE | HDMI_MAI_DATA;  // HDMI 데이터 레지스터로 변경
-        dma_cb[i].txfr_len = max_samples * 4;
-        dma_cb[i].stride = 0;
+        /* Unpaced DMA: source increments, destination fixed (FIFO) */
+        dma_cb[i].ti        = HDMI_DMA_TI;
+        /* Source: bus address with L2 bypass (0x40000000) for coherency */
+        dma_cb[i].source_ad = 0x40000000 | (((uint32_t)dma_buffer[i] + 15) & ~0xF);
+        /* Destination: MAI DATA FIFO bus address */
+        dma_cb[i].dest_ad   = HDMI_BUS_BASE + HDMI_MAI_DATA_OFFSET;
+        dma_cb[i].txfr_len  = max_samples * 4;
+        dma_cb[i].stride    = 0;
         dma_cb[i].nextconbk = 0;
     }
 
     cur_buffer = 0;
-    write_ptr = (uint32_t *)dma_cb[cur_buffer].source_ad;
+    write_ptr  = (uint32_t *)((dma_cb[cur_buffer].source_ad & ~0x40000000));
     write_size = 0;
 
     return 0;
@@ -114,9 +149,9 @@ int audio_open(uint32_t samples) {
 void audio_close() {
     IRQ->irq1Disable = INTERRUPT_DMA0;
     DMA->ch[0].cs = DMA_RESET;
-    
-    // HDMI 오디오 비활성화
-    HDMI->regs[HDMI_MAI_CTL/4] = 0;
+
+    /* Disable MAI */
+    MAI_REG(HDMI_MAI_CTL_OFFSET) = 0;
 
     for (int i = 0; i < 2; i++) {
         if (dma_buffer[i] != NULL) {
@@ -139,30 +174,31 @@ int audio_get_sample_size() {
 }
 
 void audio_play() {
-    uint32_t data;
-
     for (int i = 0; i < 2; i++) {
         memset(dma_buffer[i], 0, max_samples * 4 + 15);
     }
 
     IRQ->irq1Enable = INTERRUPT_DMA0;
 
-    DMA->enable = DMA_EN0;  // Set DMA Channel 0 Enable Bit
-    DMA->ch[0].conblk_ad = 0x40000000 | (uint32_t) &dma_cb[cur_buffer];  // Set Control Block Data Address Into DMA Channel 0 Controller
-    DMA->ch[0].cs = DMA_ACTIVE | DMA_INT; // Start DMA
+    DMA->enable = DMA_EN0;
+    DMA->ch[0].conblk_ad = 0x40000000 | (uint32_t)&dma_cb[cur_buffer];
+    DMA->ch[0].cs = DMA_ACTIVE | DMA_INT;
 
     cur_buffer = cur_buffer == 0 ? 1 : 0;
 
     audio_callback(audio_buffer, max_samples);
 
-    int16_t * src = audio_buffer;
-    volatile uint32_t * dst = (uint32_t *) dma_cb[cur_buffer].source_ad;
+    int16_t          * src = audio_buffer;
+    volatile uint32_t * dst = (uint32_t *)((dma_cb[cur_buffer].source_ad & ~0x40000000));
 
-    // HDMI 오디오 포맷에 맞게 데이터 변환
     for (int i = 0; i < max_samples; i++) {
-        // HDMI는 부호 있는 값을 직접 사용 (PWM과 달리 오프셋 필요 없음)
-        data = (*src++) << (16 - SAMPLE_SHIFT);  // 16비트로 확장
-        *dst++ = data;
+        /* HDMI MAI expects signed 16-bit PCM, packed as 32-bit words.
+         * Shift up to fill 16-bit range (SAMPLE_SHIFT adjusts for
+         * what the application puts in). */
+        int16_t s = (int16_t)((*src++) << SAMPLE_SHIFT);
+        /* Pack 16-bit signed sample as lower 16 bits, upper 16 = same (mono-expand)
+         * or for stereo interleaved: even index = left, odd = right */
+        *dst++ = (uint32_t)(uint16_t)s;
     }
 }
 
@@ -171,48 +207,42 @@ void audio_stop() {
 }
 
 void audio_dma_irq() {
-    uint32_t data;
-
-    DMA->enable = DMA_EN0;  // Set DMA Channel 0 Enable Bit
-    DMA->ch[0].conblk_ad = 0x40000000 | (uint32_t) &dma_cb[cur_buffer];  // Set Control Block Data Address Into DMA Channel 0 Controller
-    DMA->ch[0].cs = DMA_ACTIVE | DMA_INT; // Start DMA
+    DMA->enable = DMA_EN0;
+    DMA->ch[0].conblk_ad = 0x40000000 | (uint32_t)&dma_cb[cur_buffer];
+    DMA->ch[0].cs = DMA_ACTIVE | DMA_INT;
 
     cur_buffer = cur_buffer == 0 ? 1 : 0;
 
     audio_callback(audio_buffer, max_samples);
 
-    int16_t * src = audio_buffer;
-    volatile uint32_t * dst = (uint32_t *) dma_cb[cur_buffer].source_ad;
+    int16_t          * src = audio_buffer;
+    volatile uint32_t * dst = (uint32_t *)((dma_cb[cur_buffer].source_ad & ~0x40000000));
 
-    // HDMI 오디오 포맷에 맞게 데이터 변환
     for (int i = 0; i < max_samples; i++) {
-        // HDMI는 부호 있는 값을 직접 사용 (PWM과 달리 오프셋 필요 없음)
-        data = (*src++) << (16 - SAMPLE_SHIFT);  // 16비트로 확장
-        *dst++ = data;
+        int16_t s = (int16_t)((*src++) << SAMPLE_SHIFT);
+        *dst++ = (uint32_t)(uint16_t)s;
     }
 }
 
 uint32_t audio_write(int16_t * stream, uint32_t samples) {
-    uint32_t data;
     uint32_t written = 0;
 
     while (write_size < max_samples && written < samples) {
-        // HDMI 오디오 포맷에 맞게 데이터 변환
-        data = (*stream++) << (16 - SAMPLE_SHIFT);  // 16비트로 확장
-        *write_ptr++ = data;
+        int16_t s = (int16_t)((*stream++) << SAMPLE_SHIFT);
+        *write_ptr++ = (uint32_t)(uint16_t)s;
         write_size++;
         written++;
 
         if (write_size >= max_samples) {
-            while((DMA->ch[0].cs & DMA_ACTIVE) != 0)
+            while ((DMA->ch[0].cs & DMA_ACTIVE) != 0)
                 ;
 
             DMA->enable = DMA_EN0;
-            DMA->ch[0].conblk_ad = 0x40000000 | (uint32_t) &dma_cb[cur_buffer];
+            DMA->ch[0].conblk_ad = 0x40000000 | (uint32_t)&dma_cb[cur_buffer];
             DMA->ch[0].cs = DMA_ACTIVE;
 
             cur_buffer = cur_buffer == 0 ? 1 : 0;
-            write_ptr = (uint32_t *)dma_cb[cur_buffer].source_ad;
+            write_ptr  = (uint32_t *)((dma_cb[cur_buffer].source_ad & ~0x40000000));
             write_size = 0;
         }
     }
@@ -221,21 +251,20 @@ uint32_t audio_write(int16_t * stream, uint32_t samples) {
 }
 
 void audio_write_sample(int16_t sample) {
-    // HDMI 오디오 포맷에 맞게 데이터 변환
-    uint32_t data = sample << (16 - SAMPLE_SHIFT);  // 16비트로 확장
-    *write_ptr++ = data;
+    int16_t s = (int16_t)(sample << SAMPLE_SHIFT);
+    *write_ptr++ = (uint32_t)(uint16_t)s;
     write_size++;
 
     if (write_size >= max_samples) {
-        while((DMA->ch[0].cs & DMA_ACTIVE) != 0)
+        while ((DMA->ch[0].cs & DMA_ACTIVE) != 0)
             ;
 
         DMA->enable = DMA_EN0;
-        DMA->ch[0].conblk_ad = 0x40000000 | (uint32_t) &dma_cb[cur_buffer];
+        DMA->ch[0].conblk_ad = 0x40000000 | (uint32_t)&dma_cb[cur_buffer];
         DMA->ch[0].cs = DMA_ACTIVE;
 
         cur_buffer = cur_buffer == 0 ? 1 : 0;
-        write_ptr = (uint32_t *)dma_cb[cur_buffer].source_ad;
+        write_ptr  = (uint32_t *)((dma_cb[cur_buffer].source_ad & ~0x40000000));
         write_size = 0;
     }
 }

@@ -180,10 +180,18 @@ void Raspberry_digitalWrite(int pin, int value) {
 }
 
 void SDL_Interrupt_Handler() {
-    if ((IRQ->irq1Pending & INTERRUPT_DMA0) != 0)
+    /* Handle audio DMA interrupt */
+    if ((IRQ->irq1Pending & INTERRUPT_DMA0) != 0) {
+        /* Acknowledge/clear DMA0 interrupt status first */
+        DMA->ch[0].cs = DMA_INT;
         RASPBERRYAUD_DmaInterruptHandler();
+    }
 #ifdef HAVE_USPI
-    else
-        USPiInterruptHandler ();
+    /* Handle USB interrupt unconditionally - USPiInterruptHandler checks
+     * internally whether a USB interrupt is pending, so it is safe to call
+     * even when no USB event occurred.  Using "else" here caused keyboard
+     * input to be lost whenever audio DMA and USB events arrived in the
+     * same IRQ. */
+    USPiInterruptHandler();
 #endif
 }

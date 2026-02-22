@@ -50,7 +50,7 @@ void main () {
 	SDL_Window *screen = SDL_CreateWindow("Abbaye des Morts v2.0",0,0,256,192,SDL_WINDOW_FULLSCREEN);
 
 	/* Init audio */
-	Mix_OpenAudio (22050,MIX_DEFAULT_FORMAT,2,4096);
+	Mix_OpenAudio (44100,MIX_DEFAULT_FORMAT,2,4096);
 	Mix_AllocateChannels(5);
 
 	/* Init game controllers */

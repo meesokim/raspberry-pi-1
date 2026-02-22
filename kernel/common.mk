@@ -7,6 +7,7 @@ LD := $(TOOLCHAIN)ld
 AS := $(TOOLCHAIN)as
 AR := $(TOOLCHAIN)ar
 OBJCOPY := $(TOOLCHAIN)objcopy
+OBJDUMP := $(TOOLCHAIN)objdump
 
 DEPDIR := .deps
 USPI := 1
