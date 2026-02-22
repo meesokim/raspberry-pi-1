@@ -39,7 +39,7 @@
 #define MAX_DESCRIPTORS         64
 #define RESERVED_DESCRIPTORS    3
 
-static FATFS fat_fs[_VOLUMES];
+static FATFS fat_fs[FF_VOLUMES];
 static FIL *file_descriptors[MAX_DESCRIPTORS];
 
 void * __dso_handle;
@@ -140,7 +140,7 @@ int _fstat(int file, struct stat *st) {
     st->st_uid = 0;
     st->st_gid = 0;
     st->st_rdev = 0;
-    st->st_size = file_descriptors[file]->fsize;
+    st->st_size = file_descriptors[file]->obj.objsize;
     st->st_atime = st->st_mtime = st->st_ctime = 0;
     st->st_blksize = 0;
     st->st_blocks = 0;
@@ -197,7 +197,7 @@ int _open(const char *name, int flags, int mode) {
     if (rc == FR_OK) {
         file_descriptors[file] = fp;
         if ((flags & O_APPEND) != 0) {
-            f_lseek(fp, fp->fsize);
+            f_lseek(fp, fp->obj.objsize);
         }
     }
     else {
@@ -327,12 +327,12 @@ int ftruncate(int file, off_t length) {
     return rc == FR_OK ? 0 : -1;
 }
 
-static const char * _VOLUME_NAME[_VOLUMES] = {
-    _VOLUME_STRS
+static const char * _VOLUME_NAME[FF_VOLUMES] = {
+    FF_VOLUME_STRS
 };
 
 int mount(const char *source) {
-    for (int i = 0; i < _VOLUMES; i++) {
+    for (int i = 0; i < FF_VOLUMES; i++) {
         if (!strncasecmp(source, _VOLUME_NAME[i], strlen(_VOLUME_NAME[i]))) {
             FRESULT rc = f_mount(&fat_fs[i], source, 1);
             errno = FRESULT_to_errno(rc);
@@ -345,7 +345,7 @@ int mount(const char *source) {
 }
 
 int umount(const char *target) {
-    for (int i = 0; i < _VOLUMES; i++) {
+    for (int i = 0; i < FF_VOLUMES; i++) {
         if (!strncasecmp(target, _VOLUME_NAME[i], strlen(_VOLUME_NAME[i]))) {
             FRESULT rc = f_mount(NULL, target, 1);
             errno = FRESULT_to_errno(rc);

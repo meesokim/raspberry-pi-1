@@ -24,6 +24,45 @@
 
 #include "SDL_timer.h"
 
+#ifdef __RASPBERRY_PI__
+// BCM2835 System Timer - free-running counter at 1 MHz (1 us resolution)
+// RPi 1 (BCM2835): peripheral base = 0x20000000, system timer at +0x3000
+// RPi 2/3 (BCM2836/7): peripheral base = 0x3F000000
+// System timer lower 32-bit counter (CLO) at offset 0x04
+#define SYSTIMER_BASE  0x20003000UL
+#define SYSTIMER_CLO   (*(volatile unsigned int *)(SYSTIMER_BASE + 0x04))
+
+static unsigned int timer_start_us = 0;
+static int rpi_timer_initialized = 0;
+
+static void rpi_timer_init(void) {
+    timer_start_us = SYSTIMER_CLO;
+    rpi_timer_initialized = 1;
+}
+
+// Returns milliseconds since init
+static Uint32 rpi_get_ticks_ms(void) {
+    if (!rpi_timer_initialized) {
+        rpi_timer_init();
+    }
+    unsigned int now = SYSTIMER_CLO;
+    // Handle 32-bit wraparound (~71 minutes): unsigned subtraction handles it
+    unsigned int elapsed_us = now - timer_start_us;
+    return (Uint32)(elapsed_us / 1000);
+}
+
+static void rpi_delay_ms(Uint32 ms) {
+    if (!rpi_timer_initialized) {
+        rpi_timer_init();
+    }
+    unsigned int start = SYSTIMER_CLO;
+    unsigned int wait_us = ms * 1000;
+    while ((SYSTIMER_CLO - start) < wait_us) {
+        // busy wait
+    }
+}
+#endif /* __RASPBERRY_PI__ */
+
 static SDL_bool ticks_started = SDL_FALSE;
 
 void
@@ -33,6 +72,9 @@ SDL_TicksInit(void)
         return;
     }
     ticks_started = SDL_TRUE;
+#ifdef __RASPBERRY_PI__
+    rpi_timer_init();
+#endif
 }
 
 void
@@ -48,14 +90,22 @@ SDL_GetTicks(void)
         SDL_TicksInit();
     }
 
+#ifdef __RASPBERRY_PI__
+    return rpi_get_ticks_ms();
+#else
     SDL_Unsupported();
     return 0;
+#endif
 }
 
 Uint64
 SDL_GetPerformanceCounter(void)
 {
+#ifdef __RASPBERRY_PI__
+    return (Uint64)rpi_get_ticks_ms();
+#else
     return SDL_GetTicks();
+#endif
 }
 
 Uint64
@@ -67,7 +117,11 @@ SDL_GetPerformanceFrequency(void)
 void
 SDL_Delay(Uint32 ms)
 {
+#ifdef __RASPBERRY_PI__
+    rpi_delay_ms(ms);
+#else
     SDL_Unsupported();
+#endif
 }
 
 #endif /* SDL_TIMER_DUMMY || SDL_TIMERS_DISABLED */

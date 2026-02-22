@@ -36,5 +36,7 @@ struct SDL_PrivateAudioData {
     Uint32 initial_calls;
 };
 
+extern void RASPBERRYAUD_RefillBuffers(void);
+
 #endif /* _SDL_rpiaudio_h */
 /* vi: set ts=4 sw=4 expandtab: */

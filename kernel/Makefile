@@ -11,8 +11,8 @@ OBJS = \
 	fb.o \
 	fatfs/diskio.o \
 	fatfs/ff.o \
-	fatfs/option/ccsbcs.o \
-	fatfs/option/syscall.o \
+	fatfs/ffsystem.o \
+	fatfs/ffunicode.o \
 	platform.o \
 	syscalls.o \
 	usb.o \

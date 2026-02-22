@@ -51,52 +51,66 @@ static volatile int cur_buffer;
 static volatile DMA_CB dma_cb[NUM_BUFFERS] __attribute__ ((aligned (32)));
 static unsigned char * dma_buffer[NUM_BUFFERS];
 static Uint8 * audio_buffer;
+static volatile int needs_refill[NUM_BUFFERS]; /* Flags for background refill */
 
 /* 
  * 4th Refinement: Handler for Quad-buffering
  */
 __attribute__((visibility("default"))) void RASPBERRYAUD_DmaInterruptHandler() {
-    int16_t * src;
-    
     /* Acknowledge DMA interrupt */
     DMA->ch[0].cs = DMA_INT | DMA_ACTIVE;
 
-    /* The buffer that just finished and needs refilling */
-    int fill_idx = cur_buffer;
+    /* Mark the buffer that just finished for refill */
+    needs_refill[cur_buffer] = 1;
+    
     /* Increment and wrap around 0-3 */
     cur_buffer = (cur_buffer + 1) % NUM_BUFFERS;
 
-    if (locked) return;
-
-    /* Request new audio data from SDL */
-    if (device->convert.needed) {
-        (*device->spec.callback)(device->spec.userdata, (Uint8 *) device->convert.buf, device->convert.len);
-        SDL_ConvertAudio(&device->convert);
-        src = (int16_t *) device->convert.buf;
-    } else {
-        (*device->spec.callback)(device->spec.userdata, (Uint8 *) audio_buffer, device->spec.size);
-        src = (int16_t *) audio_buffer;
-    }
-
-    /* Write samples to the uncached buffer */
-    uint32_t * dst = (uint32_t *) (CPU_ADDR_ALIAS | (uint32_t)dma_buffer[fill_idx]); 
-    int total_samples = device->spec.samples * device->spec.channels;
-    
-    for (int i = 0; i < total_samples; i++) {
-        uint32_t raw = (uint32_t)(uint16_t)(*src++);
-        uint32_t data = (raw << 16);
-        data >>= 4; /* Preserve sign bits while shifting into audio data field */
-        data &= ~0xF;
-        *dst++ = data;
-    }
-    
-    /* MAI Status Check: Recover from Underflow if occurred during high CPU load */
+    /* MAI Status Check: Recover from Underflow */
     if (HD_REG(HDMI_MAI_CTL) & (1 << 2)) {
         HD_REG(HDMI_MAI_CTL) |= (1 << 9); /* Flush MAI FIFO */
         HD_REG(HDMI_MAI_CTL) |= (1 << 2); /* Acknowledge UF */
     }
 
     __asm__ volatile ("mcr p15,0,%0,c7,c10,4" : : "r" (0)); /* DSB */
+}
+
+/* 10th Refinement: Perform heavy mixing in background (PumpEvents) */
+void RASPBERRYAUD_RefillBuffers(void) {
+    if (!running || locked || !device) return;
+
+    static int count = 0;
+    for (int i = 0; i < NUM_BUFFERS; i++) {
+        if (needs_refill[i]) {
+            if (count++ % 100 == 0) printf("A"); // Audio Heartbeat
+            int16_t * src;
+
+            /* Request new audio data from SDL */
+            if (device->convert.needed) {
+                (*device->spec.callback)(device->spec.userdata, (Uint8 *) device->convert.buf, device->convert.len);
+                SDL_ConvertAudio(&device->convert);
+                src = (int16_t *) device->convert.buf;
+            } else {
+                (*device->spec.callback)(device->spec.userdata, (Uint8 *) audio_buffer, device->spec.size);
+                src = (int16_t *) audio_buffer;
+            }
+
+            /* Write samples to the uncached buffer */
+            uint32_t * dst = (uint32_t *) (CPU_ADDR_ALIAS | (uint32_t)dma_buffer[i]); 
+            int total_samples = device->spec.samples * device->spec.channels;
+            
+            for (int j = 0; j < total_samples; j++) {
+                /* BCM2835 MAI / IEC60958: 16-bit sample goes in bits [27:12]
+                 * i.e. sample << 12, with LSB 4 bits cleared as validity bits */
+                uint32_t raw = (uint32_t)(uint16_t)(*src++);
+                uint32_t data = (raw << 12) & ~0xF;
+                *dst++ = data;
+            }
+
+            needs_refill[i] = 0; /* Clear flag when done */
+            __asm__ volatile ("mcr p15,0,%0,c7,c10,4" : : "r" (0)); /* DSB */
+        }
+    }
 }
 
 static void RASPBERRYAUD_CloseDevice(_THIS) {
@@ -132,7 +146,8 @@ static int RASPBERRYAUD_OpenDevice(_THIS, const char *devname, int iscapture) {
     HD_REG(HDMI_MAI_THR) = 0x08080608;
     HD_REG(HDMI_MAI_FMT) = 0x20900;
     HD_REG(HDMI_MAI_SMP) = 0x0DCD21F3;
-    HD_REG(HDMI_MAI_CTL) = (1 << 13) | (1 << 12) | (2 << 4) | (1 << 3); 
+    // Ensure bit 0 (ENABLE) is set, along with other required control bits
+    HD_REG(HDMI_MAI_CTL) = (1 << 13) | (1 << 12) | (2 << 4) | (1 << 3) | 1; 
 
     HDMI_REG(HDMI_MAI_CONFIG) = (1 << 27) | (1 << 26) | (1 << 1) | (1 << 0);
     HDMI_REG(HDMI_MAI_CHANNEL_MAP) = 0x8;
@@ -193,7 +208,7 @@ static int RASPBERRYAUD_OpenDevice(_THIS, const char *devname, int iscapture) {
     for (int i = 0; i < NUM_BUFFERS; i++) {
         /* Accessing CB through Uncached Alias to ensure HW sees it immediately */
         volatile DMA_CB * cb = (volatile DMA_CB *)(CPU_ADDR_ALIAS | (uint32_t)&dma_cb[i]);
-        cb->ti = DMA_SRC_INC | DMA_DEST_DREQ | (DMA_PERMAP_HDMI << 16) | (2 << 12) | DMA_INTEN;
+        cb->ti = DMA_SRC_INC | DMA_DEST_DREQ | (DMA_PERMAP_HDMI << 16) | (8 << 12) | DMA_INTEN;
         cb->source_ad = BUS_ADDR_ALIAS | (uint32_t)dma_buffer[i];
         cb->dest_ad = HD_BUS_BASE + HDMI_MAI_DATA; 
         cb->txfr_len = buf_size;

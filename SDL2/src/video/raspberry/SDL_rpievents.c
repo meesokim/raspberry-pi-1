@@ -30,10 +30,12 @@
 #include "SDL_rpivideo.h"
 #include "SDL_rpievents_c.h"
 
+extern void RASPBERRYAUD_RefillBuffers(void);
+
 void
 RASPBERRY_PumpEvents(_THIS)
 {
-
+    RASPBERRYAUD_RefillBuffers();
 }
 
 #endif /* SDL_VIDEO_DRIVER_RASPBERRY */

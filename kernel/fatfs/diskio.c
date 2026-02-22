@@ -1,10 +1,5 @@
 /*-----------------------------------------------------------------------*/
-/* Low level disk I/O module skeleton for FatFs     (C)ChaN, 2014        */
-/*-----------------------------------------------------------------------*/
-/* If a working storage control module is available, it should be        */
-/* attached to the FatFs via a glue function rather than modifying it.   */
-/* This is an example of glue functions to attach various exsisting      */
-/* storage control modules to the FatFs module with a defined API.       */
+/* Low level disk I/O module for FatFs R0.16        (C)msx, 2026         */
 /*-----------------------------------------------------------------------*/
 
 #include <sys/stat.h>
@@ -15,11 +10,12 @@
 #include "uspi.h"
 #endif
 
+#include "ff.h"			/* FatFs definitions */
 #include "diskio.h"		/* FatFs lower layer API */
 
 /* Definitions of physical drive number for each drive */
-#define MMC		0	/* Example: Map MMC/SD card to drive number 1 */
-#define USB		1	/* Example: Map USB drive to drive number 2 */
+#define MMC		0	/* SD Card */
+#define USB		1	/* USB Drive(s) starting from index 1 */
 
 
 static struct emmc_block_dev *emmc_dev;
@@ -100,7 +96,7 @@ DSTATUS disk_initialize (
 DRESULT disk_read (
     BYTE pdrv,      /* Physical drive number to identify the drive */
     BYTE *buff,     /* Data buffer to store read data */
-    DWORD sector,   /* Sector address in LBA */
+    LBA_t sector,   /* Sector address in LBA (ff16 uses LBA_t) */
     UINT count      /* Number of sectors to read */
 )
 {
@@ -108,7 +104,8 @@ DRESULT disk_read (
         case MMC :
         {
             size_t buf_size = count * emmc_dev->bd.block_size;
-            if (sd_read(buff, buf_size, sector) < buf_size)
+            /* sd_read takes DWORD for sector in current emmc.h, ff16 LBA_t is 32-bit by default */
+            if (sd_read(buff, buf_size, (uint32_t)sector) < buf_size)
             {
                 return RES_ERROR;
             }
@@ -126,7 +123,7 @@ DRESULT disk_read (
             }
 
             unsigned buf_size = count * USPI_BLOCK_SIZE;
-            if (USPiMassStorageDeviceRead(sector * USPI_BLOCK_SIZE, buff, buf_size, nDeviceIndex) < buf_size)
+            if (USPiMassStorageDeviceRead((uint32_t)sector * USPI_BLOCK_SIZE, buff, buf_size, nDeviceIndex) < buf_size)
             {
                 return RES_ERROR;
             }
@@ -145,10 +142,11 @@ DRESULT disk_read (
 /* Write Sector(s)                                                       */
 /*-----------------------------------------------------------------------*/
 
+#if FF_FS_READONLY == 0
 DRESULT disk_write (
     BYTE pdrv,          /* Physical drive number to identify the drive */
     const BYTE *buff,   /* Data to be written */
-    DWORD sector,       /* Sector address in LBA */
+    LBA_t sector,       /* Sector address in LBA */
     UINT count          /* Number of sectors to write */
 )
 {
@@ -156,7 +154,7 @@ DRESULT disk_write (
         case MMC :
         {
             size_t buf_size = count * emmc_dev->bd.block_size;
-            if (sd_write((uint8_t *)buff, buf_size, sector) < buf_size)
+            if (sd_write((uint8_t *)buff, buf_size, (uint32_t)sector) < buf_size)
             {
                 return RES_ERROR;
             }
@@ -174,7 +172,7 @@ DRESULT disk_write (
             }
 
             unsigned buf_size = count * USPI_BLOCK_SIZE;
-            if (USPiMassStorageDeviceWrite(sector * USPI_BLOCK_SIZE, buff, buf_size, nDeviceIndex) < buf_size)
+            if (USPiMassStorageDeviceWrite((uint32_t)sector * USPI_BLOCK_SIZE, buff, buf_size, nDeviceIndex) < buf_size)
             {
                 return RES_ERROR;
             }
@@ -186,6 +184,7 @@ DRESULT disk_write (
 
     return RES_PARERR;
 }
+#endif
 
 
 /*-----------------------------------------------------------------------*/
@@ -206,17 +205,17 @@ DRESULT disk_ioctl (
             }
             if (cmd == GET_SECTOR_COUNT)
             {
-                *(DWORD *)buff = emmc_dev->bd.num_blocks;
+                *(LBA_t *)buff = emmc_dev->bd.num_blocks;
                 return RES_OK;
             }
             if (cmd == GET_SECTOR_SIZE)
             {
-                *(DWORD *)buff = emmc_dev->bd.block_size;
+                *(WORD *)buff = (WORD)emmc_dev->bd.block_size;
                 return RES_OK;
             }
             if (cmd == GET_BLOCK_SIZE)
             {
-                *(DWORD *)buff = emmc_dev->bd.block_size;
+                *(DWORD *)buff = (DWORD)emmc_dev->bd.block_size;
                 return RES_OK;
             }
             return RES_PARERR;
@@ -235,12 +234,12 @@ DRESULT disk_ioctl (
             }
             if (cmd == GET_SECTOR_COUNT)
             {
-                *(DWORD *)buff = USPiMassStorageDeviceGetCapacity(nDeviceIndex);
+                *(LBA_t *)buff = USPiMassStorageDeviceGetCapacity(nDeviceIndex);
                 return RES_OK;
             }
             if (cmd == GET_SECTOR_SIZE)
             {
-                *(DWORD *)buff = USPI_BLOCK_SIZE;
+                *(WORD *)buff = USPI_BLOCK_SIZE;
                 return RES_OK;
             }
             if (cmd == GET_BLOCK_SIZE)
@@ -256,11 +255,13 @@ DRESULT disk_ioctl (
     return RES_PARERR;
 }
 
-#if !_FS_READONLY && !_FS_NORTC
+#if !FF_FS_READONLY && !FF_FS_NORTC
 DWORD get_fattime (void)
 {
     time_t now = time(NULL);
     struct tm *ltm = localtime(&now);
+
+    if (ltm == NULL) return 0; /* Fallback */
 
     return   ((DWORD)(ltm->tm_year - 80) << 25)
            | ((DWORD)(ltm->tm_mon + 1) << 21)
