@@ -31,6 +31,7 @@
 // System timer lower 32-bit counter (CLO) at offset 0x04
 #define SYSTIMER_BASE  0x20003000UL
 #define SYSTIMER_CLO   (*(volatile unsigned int *)(SYSTIMER_BASE + 0x04))
+#define GET32(a) (*(volatile unsigned int*)(a))
 
 static unsigned int timer_start_us = 0;
 static int rpi_timer_initialized = 0;
@@ -42,19 +43,16 @@ static void rpi_timer_init(void) {
 
 // Returns milliseconds since init
 static Uint32 rpi_get_ticks_ms(void) {
-    if (!rpi_timer_initialized) {
-        rpi_timer_init();
-    }
-    unsigned int now = SYSTIMER_CLO;
-    // Handle 32-bit wraparound (~71 minutes): unsigned subtraction handles it
-    unsigned int elapsed_us = now - timer_start_us;
-    return (Uint32)(elapsed_us / 1000);
+    // if (!rpi_timer_initialized) {
+    //     rpi_timer_init();
+    // }
+    return (Uint32)((SYSTIMER_CLO- timer_start_us)  / 1000);
 }
 
 static void rpi_delay_ms(Uint32 ms) {
-    if (!rpi_timer_initialized) {
-        rpi_timer_init();
-    }
+    // if (!rpi_timer_initialized) {
+    //     rpi_timer_init();
+    // }
     unsigned int start = SYSTIMER_CLO;
     unsigned int wait_us = ms * 1000;
     while ((SYSTIMER_CLO - start) < wait_us) {
