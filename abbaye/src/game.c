@@ -28,6 +28,25 @@ void drawjean (SDL_Surface *renderer,SDL_Surface *tiles,struct hero *jean,int co
 void drawenemies (struct enem *enemies,SDL_Surface *renderer,SDL_Surface *tiles,Mix_Chunk *fx[],uint changetiles);
 void drawshoots (float proyec[],SDL_Surface *tiles,SDL_Surface *renderer,struct enem *enemies,uint changetiles);
 
+void loaddata();
+void loadingmusic();
+void searchenemies();
+void movenemies();
+void crusaders();
+void dragon();
+void fireball();
+void plants();
+void drawrope();
+void death();
+void satan();
+void collisions();
+void movejean();
+void touchobj();
+void contact();
+void showparchment();
+void redparchment();
+void blueparchment();
+
 void game(SDL_Window *screen,uint *state,uint *grapset,uint *fullscreen) {
 
     /* Renderer */
