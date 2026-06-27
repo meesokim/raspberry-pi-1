@@ -24,7 +24,7 @@ OBJS = \
 	src/miniz/miniz_zip.o \
 	src/bzip2/blocksort.o src/bzip2/bzlib.o src/bzip2/compress.o src/bzip2/crctable.o src/bzip2/decompress.o src/bzip2/huffman.o src/bzip2/randtable.o
 
-CFLAGS += -finline-functions -funswitch-loops -fpredictive-commoning -fgcse-after-reload -ftree-vectorize -Isrc -Isrc/miniz -Isrc/bzip2 -ffunction-sections -fdata-sections -mno-unaligned-access -D__circle__
+CFLAGS += -Isrc -Isrc/miniz -Isrc/bzip2 -ffunction-sections -fdata-sections -mno-unaligned-access -D__circle__
 CPPFLAGS = $(filter-out -ffreestanding, $(CFLAGS)) -fno-exceptions -fno-unwind-tables -fno-rtti -std=c++17 -fpermissive
 LDFLAGS += -Wl,--gc-sections
 
