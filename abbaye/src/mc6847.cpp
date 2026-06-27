@@ -172,7 +172,7 @@ void CMC6847::Update ()
 				FILL(data, REPL, palette[border]);
 				for(x=0; x < 32; x++)
 				{
-					u8 attr = pAttrRow[x];
+					u8 attr = pAttrRow[x] | ATTR_EXT;
 					u8 ch = pCharRow[x];
 					if ((attr & ATTR_SEM) != 0)
 					{
