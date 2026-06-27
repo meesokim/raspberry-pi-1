@@ -144,7 +144,7 @@ static const KeyMap spcKeyMap[] = {
 
 	{ SDLK_F4,				8, 0x02, "F4"      },
 	{ SDLK_DOWN,			8, 0x04, "DOWN"    },
-	{ SDLK_COLON,			8, 0x08, ":"       },
+	{ SDLK_QUOTE,			8, 0x08, ":"       },
 	{ SDLK_SLASH,			8, 0x10, "/"       },
 	{ SDLK_k,				8, 0x20, "K"       },
 	{ SDLK_i,				8, 0x40, "I"       },
