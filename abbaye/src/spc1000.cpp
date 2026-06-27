@@ -579,9 +579,19 @@ void  main_loop()
         if( audid == 0 )
         {
             std::cerr << "Error opening audio device: " << SDL_GetError() << std::endl;
-            return;
+#ifdef __circle__
+            addstr("DEBUG 11: Audio device failed to open (continuing without sound)\n");
+            refresh();
+#endif
         }
-        SDL_PauseAudioDevice(audid, 0);
+        else
+        {
+            SDL_PauseAudioDevice(audid, 0);
+#ifdef __circle__
+            addstr("DEBUG 11: Audio device opened successfully\n");
+            refresh();
+#endif
+        }
         // pinMode(16, OUTPUT);
         // register_timer(&tw, 250000);
         ptime = SDL_GetTicks();
@@ -592,6 +602,10 @@ void  main_loop()
         // setText(text);        
         first_call = false;
         last_time = SDL_GetTicks();
+#ifdef __circle__
+        addstr("DEBUG 12: first_call completed! Starting emulation loop...\n");
+        refresh();
+#endif
     }
     // Smart Frame Limiter
     uint32_t now = SDL_GetTicks();
