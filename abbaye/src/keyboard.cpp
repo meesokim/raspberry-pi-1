@@ -96,6 +96,10 @@ void CKeyboard::setMatrix(const char* code) {
 
 CKeyboard::CKeyboard()
 {
+}
+
+void CKeyboard::init()
+{
 	BuildKeyHashTab();
 	clearMatrix();
 }

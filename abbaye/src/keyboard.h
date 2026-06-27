@@ -123,6 +123,7 @@ class CKeyboard {
         void setMatrix(const char* code);
     public:
         CKeyboard();
+        void init();
         unsigned char matrix(char reg) {
             unsigned char ret = keyMatrix[(reg&0xf)];
             if (pressed && (reg&0xf) == 0)

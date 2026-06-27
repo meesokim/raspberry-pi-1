@@ -707,6 +707,9 @@ extern "C" int spc1000_main(int argc, char *argv[]) {
     clear();
     addstr("DEBUG 1: Entered spc1000_main()\n");
     refresh();
+    kbd.init();
+    addstr("DEBUG 1.5: Keyboard initialized\n");
+    refresh();
 #endif
 
 #ifdef __circle__

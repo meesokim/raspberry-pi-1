@@ -10,12 +10,17 @@ class CPU {
         z80 *r;
 
         CPU() { 
-            r = new z80(); 
+            r = nullptr; 
             for (int i = 0; i < 65536; i++) bp[i] = false;
         }
         void initTick(uint32_t clk) { prev = clk; }
         uint32_t getCycles() { return cycles; }
-        void init() { z80_init(r); r->interrupt_mode = 1; turbo = false;}
+        void init() { 
+            if (!r) r = new z80();
+            z80_init(r); 
+            r->interrupt_mode = 1; 
+            turbo = false;
+        }
         void reset() { z80_reset(r); cycles = 0; }
         void set_turbo(int b, int ms = 200) { 
             // if (b != turbo) {
