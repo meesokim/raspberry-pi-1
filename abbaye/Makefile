@@ -19,14 +19,18 @@ OBJS = \
 	sounds/AreaIICavesV2N.o sounds/EvilFightN.o sounds/Item.o sounds/ManhuntN.o sounds/onedeathn.o sounds/slash.o \
 	sounds/AreaIIIHellN.o sounds/GameOverV2N.o sounds/jump.o sounds/ManhuntwoodN.o sounds/PrayerofHopeN.o \
 	src/drawing.o src/ending.o src/enemies.o src/game.o src/gameover.o src/history.o src/jean.o src/loading.o src/startscreen.o \
-	src/main.o src/dummy.o
+	src/main.o src/dummy.o \
+	src/spc1000.o src/mc6847.o src/keyboard.o src/cpu.o src/cassette.o src/spcall.o src/emu2149.o src/ugui.o src/stub.o \
+	src/bzip2/blocksort.o src/bzip2/bzlib.o src/bzip2/compress.o src/bzip2/crctable.o src/bzip2/decompress.o src/bzip2/huffman.o src/bzip2/randtable.o
 
-CFLAGS += -finline-functions -funswitch-loops -fpredictive-commoning -fgcse-after-reload -ftree-vectorize
+CFLAGS += -finline-functions -funswitch-loops -fpredictive-commoning -fgcse-after-reload -ftree-vectorize -Isrc -Isrc/miniz -Isrc/bzip2 -ffunction-sections -fdata-sections -mno-unaligned-access -D__circle__
+CPPFLAGS = $(filter-out -ffreestanding, $(CFLAGS)) -fno-exceptions -fno-unwind-tables -fno-rtti -std=c++17 -fpermissive
+LDFLAGS += -Wl,--gc-sections
 
 -include $(DEPDIR)/*.Po
 
 kernel.img: $(OBJS) Makefile ../kernel/raspberry.ld $(LIBS_DEP)
-	$(CXX) $(LDFLAGS) $(OBJS) $(LIBS)
+	$(CXX) $(LDFLAGS) -o kernel.elf $(OBJS) $(LIBS)
 	$(OBJDUMP) -d kernel.elf | $(TOOLCHAIN)c++filt > kernel.lst
 	$(OBJCOPY) kernel.elf -O binary kernel.img
 
