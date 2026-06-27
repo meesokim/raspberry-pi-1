@@ -669,15 +669,28 @@ void  main_loop()
     }
 }
 
-#include <sys/stat.h>
-int spc1000_main(int argc, char *argv[]) {
+#ifdef __circle__
+#include "kernel.h"
+#endif
 
+#include <sys/stat.h>
+extern "C" int spc1000_main(int argc, char *argv[]) {
+
+#ifdef __circle__
+    mount("sd:");
+    struct stat st;
+    if (stat("sd:/taps", &st) != 0) {
+        mkdir("sd:/taps", 0777);
+    }
+    char *tapefile = (char *)"sd:/taps";
+#else
 #ifdef TAPE_DIR
     #define TAPE TAPE_DIR
 #else
     #define TAPE "taps2"
 #endif
     char *tapefile = (char *)TAPE;
+#endif
     if (argc > 1)
     {
         struct stat sb;

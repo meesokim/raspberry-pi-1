@@ -22,13 +22,6 @@ SECTIONS
         *(.data*) 
     }
 
-    .bss : {
-        __bss_start__ = ABSOLUTE(.);
-        *(.bss*)
-        *(COMMON)
-        __bss_end__ = ABSOLUTE(.);
-    }
-    
     .ARM.exidx : {
         __exidx_start = ABSOLUTE(.);
         *(.ARM.exidx* .gnu.linkonce.armexidx.*)
@@ -46,6 +39,13 @@ SECTIONS
         __c_stack_top__ = ABSOLUTE(.);
 
         __stack_end__ = ABSOLUTE(.);
+    }
+
+    .bss : {
+        __bss_start__ = ABSOLUTE(.);
+        *(.bss*)
+        *(COMMON)
+        __bss_end__ = ABSOLUTE(.);
     }
 
     .heap : {
