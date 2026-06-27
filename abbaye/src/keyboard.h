@@ -13,14 +13,6 @@ class CKeyboard {
             byte keyMask;
             const char *keyName; // for debugging
         } TKeyMap;
-        /**
-        * Keyboard hashing table structure
-        */
-        typedef struct
-        {
-            int numEntry;
-            TKeyMap *keys;
-        } TKeyHashTab;
         bool pressed = false;
         int repeat = 0;
         TKeyMap spcKeyMap[70] = // the last item's keyMatIdx must be -1
@@ -107,13 +99,7 @@ class CKeyboard {
             { (SDL_Keycode)0, -1, 0, "LAST KEY" }
         };
 
-        /**
-        * Keyboard Hashing table definition.
-        * initially empty.
-        */
-        TKeyHashTab KeyHashTab[256] = { 0, NULL };
         unsigned char keyMatrix[10];
-        void BuildKeyHashTab(void);
         void clearMatrix() {
             for (int i = 0; i < sizeof(keyMatrix); i++)
         		keyMatrix[i] = 0xff;

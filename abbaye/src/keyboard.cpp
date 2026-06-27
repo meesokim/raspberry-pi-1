@@ -100,7 +100,6 @@ CKeyboard::CKeyboard()
 
 void CKeyboard::init()
 {
-	BuildKeyHashTab();
 	clearMatrix();
 }
 
@@ -110,84 +109,33 @@ void CKeyboard::handle_event(SDL_Event event)
 	if (event.type == SDL_KEYDOWN) ProcessKeyDown(sym);
 	else if (event.type == SDL_KEYUP) ProcessKeyUp(sym);
 }
-/**
- * Build Keyboard Hashing Table
- * Call this once at the initialization phase.
- */
-void CKeyboard::BuildKeyHashTab(void)
-{
-	int i;
-	static int hashPos[256] = { 0 };
 
-	for (i = 0; spcKeyMap[i].keyMatIdx != -1; i++)
-	{
-		int index = spcKeyMap[i].sym % 256;
-
-		KeyHashTab[index].numEntry++;
-		hashPos[index]++;
-	}
-
-	for (i = 0; i < 256; i++)
-	{
-		KeyHashTab[i].keys
-			= (TKeyMap *) malloc(sizeof(TKeyMap) * hashPos[i]);
-	}
-
-	for (i = 0; spcKeyMap[i].keyMatIdx != -1; i++)
-	{
-		int index = spcKeyMap[i].sym % 256;
-
-		hashPos[index]--;
-		if (hashPos[index] < 0)
-			printf("Fatal: out of range in %s:BuildKeyHashTab().\n",
-			__FILE__), exit(1);
-		KeyHashTab[index].keys[hashPos[index]]
-			= spcKeyMap[i];
-	}
-}
-
-/**
- * SDL Key-Down processing. Search Hash table and set appropriate keyboard matrix.
- * @param sym SDL key symbol
- */
 void CKeyboard::ProcessKeyDown(SDL_Keycode sym)
 {
-	int i;
-	int index = sym % 256;
-    //printf(">%d-%c\n", sym);
-	for (i = 0; i < KeyHashTab[index].numEntry; i++)
+	for (int i = 0; spcKeyMap[i].keyMatIdx != -1; i++)
 	{
-		if (KeyHashTab[index].keys[i].sym == sym)
+		if (spcKeyMap[i].sym == sym)
 		{
-			keyMatrix[KeyHashTab[index].keys[i].keyMatIdx]
-				&= ~(KeyHashTab[index].keys[i].keyMask);
+			keyMatrix[spcKeyMap[i].keyMatIdx] &= ~(spcKeyMap[i].keyMask);
 #ifdef DEBUG_MODE
 			printf("%08x [%s] key down\n",
-				KeyHashTab[index].keys[i].sym, KeyHashTab[index].keys[i].keyName);
+				spcKeyMap[i].sym, spcKeyMap[i].keyName);
 #endif
 			break;
 		}
 	}
 }
 
-/**
- * SDL Key-Up processing. Search Hash table and set appropriate keyboard matrix.
- * @param sym SDL key symbol
- */
 void CKeyboard::ProcessKeyUp(SDL_Keycode sym)
 {
-	int i;
-	int index = sym % 256;
-    //printf("<%d-%c\n", sym);
-	for (i = 0; i < KeyHashTab[index].numEntry; i++)
+	for (int i = 0; spcKeyMap[i].keyMatIdx != -1; i++)
 	{
-		if (KeyHashTab[index].keys[i].sym == sym)
+		if (spcKeyMap[i].sym == sym)
 		{
-			keyMatrix[KeyHashTab[index].keys[i].keyMatIdx]
-				|= (KeyHashTab[index].keys[i].keyMask);
+			keyMatrix[spcKeyMap[i].keyMatIdx] |= spcKeyMap[i].keyMask;
 #ifdef DEBUG_MODE
 			printf("%08x [%s] key up\n",
-				KeyHashTab[index].keys[i].sym, KeyHashTab[index].keys[i].keyName);
+				spcKeyMap[i].sym, spcKeyMap[i].keyName);
 #endif
 			break;
 		}
