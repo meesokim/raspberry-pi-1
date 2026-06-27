@@ -699,10 +699,12 @@ void  main_loop()
 #endif
 
 #include <sys/stat.h>
+extern "C" void fb_init(int width, int height);
 
 extern "C" int spc1000_main(int argc, char *argv[]) {
 
 #ifdef __circle__
+    fb_init(640, 480);
     initscr(0, 0);
     clear();
     addstr("DEBUG 1: Entered spc1000_main()\n");
