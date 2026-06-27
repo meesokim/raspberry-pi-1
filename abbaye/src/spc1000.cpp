@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "console.h"
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #include <emscripten/html5.h>
@@ -504,17 +505,41 @@ void  main_loop()
     SDL_Rect viewport;
     if(first_call)
     {
+#ifdef __circle__
+        addstr("DEBUG 5: inside main_loop first_call\n");
+        refresh();
+#endif
         int led_status = LOW;
         last_time = SDL_GetTicks();
+#ifdef __circle__
+        addstr("DEBUG 6: resetting emulator...\n");
+        refresh();
+#endif
         reset();
+#ifdef __circle__
+        addstr("DEBUG 7: UG_Init...\n");
+        refresh();
+#endif
         w = 320; h = 240;
         UG_Init(&ug, SetPixel, w * 2, h * 2);
         UG_FontSelect(&FONT_12X20);
+#ifdef __circle__
+        addstr("DEBUG 8: SDL_Init...\n");
+        refresh();
+#endif
         SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_EVENTS | SDL_INIT_TIMER);
+#ifdef __circle__
+        addstr("DEBUG 9: SDL_CreateWindowAndRenderer...\n");
+        refresh();
+#endif
         dstrect.w = SCREEN_WIDTH;
         dstrect.h = SCREEN_HEIGHT;
         dstrect.x = dstrect.y = 0;
         SDL_CreateWindowAndRenderer(w * 2, h * 2, SDL_WINDOW_BORDERLESS, &screen, &renderer);
+#ifdef __circle__
+        addstr("DEBUG 10: SDL Window created successfully!\n");
+        refresh();
+#endif
         // SDL_RenderSetLogicalSize(renderer, SCREEN_WIDTH, SCREEN_HEIGHT);
 #ifndef __circle__        
         // SDL_RenderSetIntegerScale(renderer, SDL_TRUE);
@@ -674,14 +699,28 @@ void  main_loop()
 #endif
 
 #include <sys/stat.h>
+
 extern "C" int spc1000_main(int argc, char *argv[]) {
 
 #ifdef __circle__
+    initscr(0, 0);
+    clear();
+    addstr("DEBUG 1: Entered spc1000_main()\n");
+    refresh();
+#endif
+
+#ifdef __circle__
+    addstr("DEBUG 2: Mounting SD...\n");
+    refresh();
     mount("sd:");
+    addstr("DEBUG 3: mount(sd:) done\n");
+    refresh();
     struct stat st;
     if (stat("sd:/taps", &st) != 0) {
         mkdir("sd:/taps", 0777);
     }
+    addstr("DEBUG 4: sd:/taps directory checked/created\n");
+    refresh();
     char *tapefile = (char *)"sd:/taps";
 #else
 #ifdef TAPE_DIR
