@@ -113,7 +113,7 @@ int _stat(const char *file, struct stat *st) {
 
         st->st_dev = 0;
         st->st_ino = 0;
-        st->st_mode = 0;
+        st->st_mode = (fno.fattrib & AM_DIR) ? S_IFDIR : S_IFREG;
         st->st_nlink = 0;
         st->st_uid = 0;
         st->st_gid = 0;

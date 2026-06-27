@@ -78,8 +78,12 @@ void Cassette::load(const char *name)
             printf("load: files is empty, nothing to load\n");
             return;
         }
-        strncpy(file, files[file_index].fname, 255);
-        file[255] = 0;
+        if (this->dirname) {
+            snprintf(file, sizeof(file), "%s/%s", this->dirname, files[file_index].fname);
+        } else {
+            strncpy(file, files[file_index].fname, 255);
+            file[255] = 0;
+        }
     } else {
         strncpy(file, name, 255);
         file[255] = 0;
@@ -214,12 +218,21 @@ void Cassette::loaddir(const char *dirname)
 {
     printf("loaddir:%s\n", dirname);
     num_files = 0;
+    if (this->dirname) {
+        free(this->dirname);
+    }
+    this->dirname = (char *)malloc(strlen(dirname) + 1);
+    if (this->dirname) {
+        strcpy(this->dirname, dirname);
+    }
 #ifdef __circle__
     DIR Directory;
     FILINFO FileInfo;
     FRESULT Result = f_findfirst (&Directory, &FileInfo, dirname, "*");
+    int count = 0;
     for (unsigned i = 0; Result == FR_OK && FileInfo.fname[0]; i++)
     {
+        count++;
         const char *dot = strrchr(FileInfo.fname, '.');
         if (dot && is_supported_extension(dot))
         {
@@ -228,6 +241,13 @@ void Cassette::loaddir(const char *dirname)
             }
         }
         Result = f_findnext (&Directory, &FileInfo);
+    }
+    FILE *log = fopen("sd:/taps_log.txt", "w");
+    if (log) {
+        fprintf(log, "dirname: %s\n", dirname);
+        fprintf(log, "f_findfirst Result: %d\n", Result);
+        fprintf(log, "found total: %d, supported: %d\n", count, num_files);
+        fclose(log);
     }
 #else
     #include <dirent.h>

@@ -8,7 +8,7 @@
 #endif
 #include <SDL.h>
 #include <SDL_events.h>
-//#include <SDL_mixer.h>
+#include <SDL_mixer.h>
 #include "cpu.h"
 #include "mc6847.h"
 #include "ay8910.h"
@@ -185,6 +185,15 @@ static void out(z80* const z, uint16_t port, uint8_t val) {
 	}
 	else if ((port & 0xFFFE) == 0x4000) // PSG
 	{
+        static int psg_log_count = 0;
+        if (psg_log_count < 100) {
+            FILE *log = fopen("sd:/psg_log.txt", "a");
+            if (log) {
+                fprintf(log, "PSG Write: port=%04x, latched=%d, val=%02x\n", port, ay8910.reg, val);
+                fclose(log);
+            }
+            psg_log_count++;
+        }
 
 		if (port & 0x01) // Data
 		{
@@ -206,6 +215,18 @@ static void out(z80* const z, uint16_t port, uint8_t val) {
             // printf("reg:%d,", val);
 		}
 	}
+    else
+    {
+        static int unknown_port_count = 0;
+        if (unknown_port_count < 100) {
+            FILE *log = fopen("sd:/port_log.txt", "a");
+            if (log) {
+                fprintf(log, "Unknown OUT: port=%04x, val=%02x\n", port, val);
+                fclose(log);
+            }
+            unknown_port_count++;
+        }
+    }
 }
 
 #define CPU_FREQ 4000000
@@ -219,24 +240,35 @@ SDL_AudioSpec audioSpec;
 int audid;
 bool crt_effect = true;
 
+static int callback_count = 0;
 void audiocallback(
   void* userdata,
   Uint8* stream,
   int    len)
 {
-    int samples = len / (sizeof(int16_t) * audioSpec.channels);
-    Uint16* stream0 = (Uint16 *)stream;
-    for(int i = 0; i < len/sizeof(int16_t); i++)
-        stream0[i] = ay8910.calc();
+    Sint16 *stream_s16 = (Sint16 *)stream;
+    int samples_to_write = len / sizeof(Sint16);
+
+    // If the hardware is stereo, we need to write the mono sample to both channels.
+    if (audioSpec.channels == 2) {
+        for (int i = 0; i < samples_to_write; i += 2) {
+            Sint16 sample = ay8910.calc();
+            stream_s16[i] = sample;     // Left channel
+            stream_s16[i+1] = sample; // Right channel
+        }
+    } else { // Mono
+        for (int i = 0; i < samples_to_write; ++i) {
+            stream_s16[i] = ay8910.calc();
+        }
+    }
 }
 
 unsigned int execute(Uint32 interval, void* name)
 {
     static int frame = 0;
     etime = SDL_GetTicks();
-    cpu.pulse_irq(0);
-    int steps = cpu.exec(etime);
-    cpu.clr_irq();
+    cpu.pulse_irq(0xFF);
+    cpu.exec(etime);
     if (frame++%2)
         mc6847.Update();
     ptime = etime;
@@ -567,13 +599,31 @@ void  main_loop()
             printf("%s\n", SDL_GetError());
         }
         
-        //Initialize SDL2 Audio - BYPASSED FOR BARE-METAL STABILITY TEST
-        audid = 0;
-#ifdef __circle__
-        addstr("DEBUG 11: Audio device open bypassed\n");
-        refresh();
-#endif
-        // pinMode(16, OUTPUT);
+        //Initialize SDL2 Audio directly via SDL_OpenAudioDevice
+        SDL_InitSubSystem(SDL_INIT_AUDIO);
+        SDL_AudioSpec want = {};
+        want.freq = 44100;
+        want.format = AUDIO_S16SYS;
+        want.channels = 2;
+        want.samples = 2048;
+        want.callback = audiocallback;
+        want.userdata = NULL;
+
+        audid = SDL_OpenAudioDevice(NULL, 0, &want, &audioSpec, 0);
+        FILE *log = fopen("sd:/audio_log.txt", "w");
+        if (log) {
+            fprintf(log, "SDL_OpenAudioDevice result: %d\n", audid);
+            if (audid == 0) {
+                fprintf(log, "Error: %s\n", SDL_GetError());
+            } else {
+                fprintf(log, "Opened spec: freq=%d, format=%x, channels=%d\n", 
+                        audioSpec.freq, audioSpec.format, audioSpec.channels);
+            }
+            fclose(log);
+        }
+        if (audid > 0) {
+            SDL_PauseAudioDevice(audid, 0); // Start audio playback!
+        }
         // register_timer(&tw, 250000);
         ptime = SDL_GetTicks();
         ay8910.initTick(ptime);
@@ -596,24 +646,22 @@ void  main_loop()
     if (now < target_time)
     {
         SDL_Delay(target_time - now);
+        // SDL_Delay(target_time - now);
         now = SDL_GetTicks();
     }
     
     uint32_t ticks_to_run = now - last_time;
     // Cap simulation step to avoid death spiral if we fall too far behind
     if (ticks_to_run > 50) ticks_to_run = 50; 
-    
     execute(ticks_to_run, NULL);
     last_time = now;
 
     if (SDL_PollEvent(&event)) {
-
         if (event.type == SDL_KEYDOWN)
         {
             if (ProcessSpecialKey(event.key.keysym))
                 return;
         }
-// #ifdef __EMSCRIPTEN__
         else if (event.type == SDL_WINDOWEVENT)
         {
             if (event.window.event == SDL_WINDOWEVENT_RESIZED) 
@@ -621,20 +669,8 @@ void  main_loop()
                 SDL_Rect  vp;
                 SDL_RenderGetViewport(renderer, &vp);
                 printf("w=%d,h=%d\n", vp.w, vp.h);
-                // if (viewport.w != vp.w || viewport.h != vp.h)
-                // {
-                //     // auto Width = vp.w;
-                //     // auto Height = vp.h;
-                //     // dstrect.x = (Width-Height*4/3)/2;
-                //     // dstrect.y = 0;
-                //     // dstrect.w = Height*4/3;
-                //     // dstrect.h = Height; 
-                //     Update_Window(screen);              
-                //    SDL_RenderGetViewport(renderer, &viewport);    
-                // }
             }
         }
-// #endif
         kbd.handle_event(event);
     }
     if (times++%2)

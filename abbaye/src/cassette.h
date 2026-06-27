@@ -53,7 +53,7 @@ class Cassette {
 public:
     char motor;
     int pos = 0;
-    Cassette() { loaded_filename[0] = 0; }
+    Cassette() { loaded_filename[0] = 0; dirname = NULL; }
     void initTick(uint32_t tick) { old_cycles = tick; }
     void load(const char *name = NULL);
     void load(const char *data, int length, const char *filename);

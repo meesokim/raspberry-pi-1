@@ -61,7 +61,7 @@ class CPU {
             cycles += c;
             return c;
         }
-        int  exec(int ms) 
+        int  exec(uint32_t ms) 
         { 
             if (turbo && turbo_off_time < prev) 
                 set_turbo(0);
