@@ -19,7 +19,7 @@ OBJS = \
 	sounds/AreaIICavesV2N.o sounds/EvilFightN.o sounds/Item.o sounds/ManhuntN.o sounds/onedeathn.o sounds/slash.o \
 	sounds/AreaIIIHellN.o sounds/GameOverV2N.o sounds/jump.o sounds/ManhuntwoodN.o sounds/PrayerofHopeN.o \
 	src/drawing.o src/ending.o src/enemies.o src/game.o src/gameover.o src/history.o src/jean.o src/loading.o src/startscreen.o \
-	src/main.o
+	src/main.o src/dummy.o
 
 CFLAGS += -finline-functions -funswitch-loops -fpredictive-commoning -fgcse-after-reload -ftree-vectorize
 

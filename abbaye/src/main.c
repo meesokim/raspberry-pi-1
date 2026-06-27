@@ -36,11 +36,15 @@ __attribute__ ((interrupt ("IRQ"))) void interrupt_irq() {
 }
 #endif
 
+extern void dummy_cpp_function();
+
 void main () {
 
 	uint state = 0; /* 0-intro,1-history,2-game */
 	uint grapset = 1; /* 0-8bits, 1-16bits */
 	uint fullscreen = 0; /* 0-Windowed,1-Fullscreen */
+
+	dummy_cpp_function();
 
 	mount("sd:");
 
