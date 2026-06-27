@@ -319,6 +319,7 @@ static uint32_t last_time = 0;
 
 void reset()
 {
+    if (audid > 0) SDL_LockAudioDevice(audid);
     cpu.init();
     cpu.set_turbo(0);
     cpu.set_read_write(rb, wb);
@@ -328,6 +329,7 @@ void reset()
     memset(memory, 0, 0x10000);
     reg.IPLK = true;
     last_time = SDL_GetTicks();
+    if (audid > 0) SDL_UnlockAudioDevice(audid);
 }
 
 
