@@ -567,31 +567,12 @@ void  main_loop()
             printf("%s\n", SDL_GetError());
         }
         
-        //Initialize SDL2 Audio
-        SDL_AudioSpec specs = {};
-        specs.freq = SPC1000_AUDIO_FREQ;
-        specs.format = AUDIO_S16SYS;
-        specs.channels = 1;
-        specs.samples = 2048;
-        specs.callback = audiocallback;
-        constexpr int PLAYBACK_DEV = 0;
-        audid  = SDL_OpenAudioDevice( nullptr, PLAYBACK_DEV, &specs, &audioSpec, 0 );
-        if( audid == 0 )
-        {
-            std::cerr << "Error opening audio device: " << SDL_GetError() << std::endl;
+        //Initialize SDL2 Audio - BYPASSED FOR BARE-METAL STABILITY TEST
+        audid = 0;
 #ifdef __circle__
-            addstr("DEBUG 11: Audio device failed to open (continuing without sound)\n");
-            refresh();
+        addstr("DEBUG 11: Audio device open bypassed\n");
+        refresh();
 #endif
-        }
-        else
-        {
-            SDL_PauseAudioDevice(audid, 0);
-#ifdef __circle__
-            addstr("DEBUG 11: Audio device opened successfully\n");
-            refresh();
-#endif
-        }
         // pinMode(16, OUTPUT);
         // register_timer(&tw, 250000);
         ptime = SDL_GetTicks();
