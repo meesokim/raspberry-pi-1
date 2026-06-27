@@ -621,9 +621,6 @@ void  main_loop()
             }
             fclose(log);
         }
-        if (audid > 0) {
-            SDL_PauseAudioDevice(audid, 0); // Start audio playback!
-        }
         // register_timer(&tw, 250000);
         ptime = SDL_GetTicks();
         ay8910.initTick(ptime);
@@ -631,6 +628,9 @@ void  main_loop()
         cassette.initTick(ptime);
         cassette.get_title(text);
         // setText(text);        
+        if (audid > 0) {
+            SDL_PauseAudioDevice(audid, 0); // Start audio playback!
+        }
         first_call = false;
         last_time = SDL_GetTicks();
 #ifdef __circle__

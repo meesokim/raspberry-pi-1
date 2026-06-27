@@ -71,7 +71,7 @@ bool CMC6847::Initialize ()
 	// Needs to be defined BEFORE call Initialize
 
 	palette[0]    = COLOR16(0x00, 0x00, 0x00);  // black
-	palette[1]    = COLOR16(0x07, 0xff, 0x00);  // green
+	palette[1]    = COLOR16(0xff, 0x00, 0x00);  // red
 	palette[2]    = COLOR16(0xff, 0xff, 0x00);  // yellow
 	palette[3]    = COLOR16(0x3b, 0x08, 0xff);  // blue
 	palette[4]    = COLOR16(0xcc, 0x00, 0x3b);  // red
