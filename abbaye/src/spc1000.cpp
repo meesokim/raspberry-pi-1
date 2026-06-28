@@ -77,7 +77,7 @@ static uint8_t in(z80* const z, uint16_t port) {
 	} else if ((port & 0xE000) == 0x0000) // VRAM reading
 	{
         static int vram_read_count = 0;
-        if (vram_read_count < 1000 && port >= 0x0800) {
+        if (vram_read_count < 1000 && port >= 0x0800 && mc6847.VRAM[port] != 0) {
             FILE *log = fopen("sd:/vram_io_log.txt", "a");
             if (log) {
                 fprintf(log, "R: port=%04x, val=%02x, PC=%04x\n", port, mc6847.VRAM[port], z->pc);
@@ -150,7 +150,7 @@ static void out(z80* const z, uint16_t port, uint8_t val) {
 	if ((port & 0xE000) == 0x0000) // VRAM area
 	{
         static int vram_write_count = 0;
-        if (vram_write_count < 1000 && port >= 0x0800) {
+        if (vram_write_count < 1000 && port >= 0x0800 && val != 0) {
             FILE *log = fopen("sd:/vram_io_log.txt", "a");
             if (log) {
                 fprintf(log, "W: port=%04x, val=%02x, PC=%04x\n", port, val, z->pc);
