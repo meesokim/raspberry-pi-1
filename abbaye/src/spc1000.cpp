@@ -267,8 +267,9 @@ unsigned int execute(Uint32 interval, void* name)
 {
     static int frame = 0;
     etime = SDL_GetTicks();
-    cpu.pulse_irq(0xFF);
+    cpu.pulse_irq(0);
     cpu.exec(etime);
+    cpu.clr_irq();
     if (frame++%2)
         mc6847.Update();
     ptime = etime;
@@ -661,8 +662,10 @@ void  main_loop()
     if (SDL_PollEvent(&event)) {
         if (event.type == SDL_KEYDOWN)
         {
-            if (ProcessSpecialKey(event.key.keysym))
-                return;
+            if (!event.key.repeat) {
+                if (ProcessSpecialKey(event.key.keysym))
+                    return;
+            }
         }
         else if (event.type == SDL_WINDOWEVENT)
         {
@@ -759,6 +762,14 @@ extern "C" int spc1000_main(int argc, char *argv[]) {
     }
     addstr("DEBUG 4: sd:/taps directory checked/created\n");
     refresh();
+    FILE *size_f = fopen("sd:/sizes_log.txt", "w");
+    if (size_f) {
+        fprintf(size_f, "sizeof(mc6847) = %u\n", (unsigned)sizeof(mc6847));
+        fprintf(size_f, "sizeof(mc6847.VRAM) = %u\n", (unsigned)sizeof(mc6847.VRAM));
+        fprintf(size_f, "offset of VRAM = %u\n", (unsigned)((char*)&mc6847.VRAM - (char*)&mc6847));
+        fprintf(size_f, "offset of GMODE = %u\n", (unsigned)((char*)&mc6847.GMODE - (char*)&mc6847));
+        fclose(size_f);
+    }
     char *tapefile = (char *)"sd:/taps";
 #else
 #ifdef TAPE_DIR

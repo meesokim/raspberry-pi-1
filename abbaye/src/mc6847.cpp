@@ -61,6 +61,14 @@ typedef unsigned char PIXEL;
 
 bool CMC6847::Initialize ()
 {
+	FILE *size_f = fopen("sd:/sizes_log_mc.txt", "w");
+	if (size_f) {
+		fprintf(size_f, "sizeof(CMC6847) = %u\n", (unsigned)sizeof(*this));
+		fprintf(size_f, "sizeof(VRAM) = %u\n", (unsigned)sizeof(VRAM));
+		fprintf(size_f, "offset of VRAM = %u\n", (unsigned)((char*)&VRAM - (char*)this));
+		fprintf(size_f, "offset of GMODE = %u\n", (unsigned)((char*)&GMODE - (char*)this));
+		fclose(size_f);
+	}
 	memset(VRAM, 0, sizeof(VRAM));
 	GMODE = 0;
 	m_pBuffer = new u16[FBSIZE];
@@ -84,7 +92,7 @@ bool CMC6847::Initialize ()
 
 	palette[10]   = COLOR16(0xff, 0xff, 0xff); // buff
 
-	palette[11]   = COLOR16(0xff, 0x00, 0x00); // red (for diagnostic)
+	palette[11]   = COLOR16(0x00, 0x3f, 0x00); // dark green
 	palette[12]   = COLOR16(0x07, 0xff, 0x00); // bright green
 	palette[13]   = COLOR16(0x91, 0x00, 0x00); // dark orange
 	palette[14]   = COLOR16(0xff, 0x81, 0x00); // bright orange
@@ -172,7 +180,7 @@ void CMC6847::Update ()
 				FILL(data, REPL, palette[border]);
 				for(x=0; x < 32; x++)
 				{
-					u8 attr = pAttrRow[x] | ATTR_EXT;
+					u8 attr = pAttrRow[x];
 					u8 ch = pCharRow[x];
 					if ((attr & ATTR_SEM) != 0)
 					{
@@ -203,9 +211,9 @@ void CMC6847::Update ()
 						}
 						if (ch < 32 && ((attr & ATTR_EXT) == 0))
 							ch = 32;	
-						if (((attr & ATTR_EXT) != 0) && (ch < 96))
+						else if (((attr & ATTR_EXT) != 0) && (ch < 96))
 							ch += 128;
-						if (ch >= 96 && ch < 128)
+						else if (ch >= 96 && ch < 128)
 							b = VRAM[0x1600+(ch-96)*16+h];
 						else if (ch >= 128 && ch < 224)
 							b = VRAM[0x1000+(ch-128)*16+h];
