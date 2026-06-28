@@ -61,14 +61,6 @@ typedef unsigned char PIXEL;
 
 bool CMC6847::Initialize ()
 {
-	FILE *size_f = fopen("sd:/sizes_log_mc.txt", "w");
-	if (size_f) {
-		fprintf(size_f, "sizeof(CMC6847) = %u\n", (unsigned)sizeof(*this));
-		fprintf(size_f, "sizeof(VRAM) = %u\n", (unsigned)sizeof(VRAM));
-		fprintf(size_f, "offset of VRAM = %u\n", (unsigned)((char*)&VRAM - (char*)this));
-		fprintf(size_f, "offset of GMODE = %u\n", (unsigned)((char*)&GMODE - (char*)this));
-		fclose(size_f);
-	}
 	memset(VRAM, 0, sizeof(VRAM));
 	GMODE = 0;
 	m_pBuffer = new u16[FBSIZE];
@@ -211,9 +203,9 @@ void CMC6847::Update ()
 						}
 						if (ch < 32 && ((attr & ATTR_EXT) == 0))
 							ch = 32;	
-						else if (((attr & ATTR_EXT) != 0) && (ch < 96))
+						if (((attr & ATTR_EXT) != 0) && (ch < 96))
 							ch += 128;
-						else if (ch >= 96 && ch < 128)
+						if (ch >= 96 && ch < 128)
 							b = VRAM[0x1600+(ch-96)*16+h];
 						else if (ch >= 128 && ch < 224)
 							b = VRAM[0x1000+(ch-128)*16+h];
