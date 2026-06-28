@@ -76,6 +76,15 @@ static uint8_t in(z80* const z, uint16_t port) {
 		return mc6847.GMODE;
 	} else if ((port & 0xE000) == 0x0000) // VRAM reading
 	{
+        static int vram_read_count = 0;
+        if (vram_read_count < 1000) {
+            FILE *log = fopen("sd:/vram_io_log.txt", "a");
+            if (log) {
+                fprintf(log, "R: port=%04x, val=%02x, PC=%04x\n", port, mc6847.VRAM[port], z->pc);
+                fclose(log);
+            }
+            vram_read_count++;
+        }
 		return mc6847.VRAM[port];
 	}	
     else if ((port & 0xFFFE) == 0x4000) // PSG
@@ -140,6 +149,15 @@ static uint8_t in(z80* const z, uint16_t port) {
 static void out(z80* const z, uint16_t port, uint8_t val) {
 	if ((port & 0xE000) == 0x0000) // VRAM area
 	{
+        static int vram_write_count = 0;
+        if (vram_write_count < 1000) {
+            FILE *log = fopen("sd:/vram_io_log.txt", "a");
+            if (log) {
+                fprintf(log, "W: port=%04x, val=%02x, PC=%04x\n", port, val, z->pc);
+                fclose(log);
+            }
+            vram_write_count++;
+        }
 		mc6847.VRAM[port&0x1fff] = val;
 	}
 	else if ((port & 0xE000) == 0xA000) // IPLK area
